@@ -8,7 +8,7 @@ Install
 
 ::
 
-    $ pip install monscrape.zip
+    $ pip install monscrape-1.0.0.zi
 
 Run
 ---

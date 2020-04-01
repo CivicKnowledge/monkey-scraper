@@ -7,12 +7,12 @@ import http.client
 import mimetypes
 from pathlib import Path
 import json
-from slugify import slugify
 from yaml import load, safe_load
 import hashlib
 import pandas as pd
 import os
 import sys
+from shutil import rmtree
 
 def main():
     """Scrape Survey Monkey responses for a United Way program
@@ -24,7 +24,9 @@ def main():
 
     $ export MONSCRAPE_TOKEN=0gwc1qdjRCLe6BRKH0fM...kpOtdskQSlIWyim55pgd1fmKx
 
-    BUGS: This will probably not catch new records that are added to the last page
+    The download function will always download and re-cache the first page. If the
+    total number of record has changed, it will also re-download the last page,
+    and download and cache any subsequent pages. 
 
     """
 
@@ -33,6 +35,7 @@ def main():
     #parser.add_argument('integers', metavar='N', type=int, nargs='+',
     #                    help='an integer for the accumulator')
 
+    parser.add_argument('-c', '--clean', action='store_true', help='Clean the cache')
     parser.add_argument('-d', '--download', action='store_true', help='Process cached documents')
     parser.add_argument('-p', '--process', action='store_true', help='Process cached documents')
 
@@ -54,6 +57,8 @@ def main():
     except FileNotFoundError:
         token = None
 
+
+
     if not token:
         token = os.environ.get('MONSCRAPE_TOKEN')
 
@@ -62,6 +67,9 @@ def main():
         sys,exit(10)
 
     s = Scraper(token, args.collector_id, args.output_file)
+
+    if args.clean:
+        s.clean_cache()
 
     if args.download:
         for d in s.get_pages(args.collector_id):
@@ -91,6 +99,10 @@ class Scraper(object):
 
         return cache
 
+    def clean_cache(self):
+        rmtree(self.cache.joinpath(self.collector_id))
+
+
     @property
     def headers(self):
 
@@ -111,7 +123,7 @@ class Scraper(object):
     def bulk_url(self,collector_id):
         return f"/v3/collectors/{collector_id}/responses/bulk"
 
-    def get_page(self, url):
+    def get_page(self, url, cache_read=True, cache_write=True, report=True):
 
         hash = hashlib.md5(url.encode('utf-8')).hexdigest()
 
@@ -119,11 +131,11 @@ class Scraper(object):
 
         cp.parent.mkdir(parents=True, exist_ok=True)
 
-        if cp.exists():
-
+        if cp.exists() and cache_read:
             t = cp.read_text()
         else:
-            print("Downloading ", url)
+            if report:
+                print("Downloading ", url)
             conn = self.connection
             headers = self.headers
             payload = ''
@@ -131,7 +143,8 @@ class Scraper(object):
             conn.request("GET", url, payload, headers)
             t = conn.getresponse().read().decode('utf-8')
 
-            cp.write_text(t,'utf-8')
+            if cache_write:
+                cp.write_text(t,'utf-8')
 
         return json.loads(t)
 
@@ -139,13 +152,25 @@ class Scraper(object):
         """Download and cache pages"""
 
         d = self.get_page(self.bulk_url(collector_id))
+        d2 = self.get_page(self.bulk_url(collector_id), cache_read=False, cache_write=True, report=False)
+
+        # Do we need to re-fetch the last page?
+        refetch_last = d['total'] !=  d2['total']
+
+
 
         while True:
             yield d
-            next = d.get('links').get('next')
+            next = d['links'].get('next')
             if not next:
                 break
-            d = self.get_page(next)
+
+            if next == d['links']['last'] and refetch_last:
+                use_cache = False
+            else:
+                use_cache = True
+
+            d = self.get_page(next, cache_read=use_cache, cache_write=True)
 
     def process_page(self, d):
         """Yield records from one page. """
