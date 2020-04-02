@@ -12,6 +12,7 @@ RUN apt-get update && \
 	apt-get autoremove -y && \
 	rm -rf /var/lib/apt/lists/*
 
+
 RUN pip install -U git+https://github.com/CivicKnowledge/monkey-scraper.git #2
     
 ADD monkeyscrape.cron /etc/cron.d/monkeyscrape.cron
@@ -19,6 +20,7 @@ RUN chmod 0644 /etc/cron.d/monkeyscrape.cron
 RUN crontab /etc/cron.d/monkeyscrape.cron 
 
 ADD monscrape.yaml /root
+ADD uwsd-covid-19-data-48c99e07e2c8.json /root
 
 #ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 #RUN chmod +x /tini
