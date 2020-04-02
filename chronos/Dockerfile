@@ -13,7 +13,7 @@ RUN apt-get update && \
 	rm -rf /var/lib/apt/lists/*
 
 
-RUN pip install -U git+https://github.com/CivicKnowledge/monkey-scraper.git #2
+RUN pip install -U git+https://github.com/CivicKnowledge/monkey-scraper.git #3
     
 ADD monkeyscrape.cron /etc/cron.d/monkeyscrape.cron
 RUN chmod 0644 /etc/cron.d/monkeyscrape.cron
