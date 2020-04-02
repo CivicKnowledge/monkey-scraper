@@ -60,3 +60,4 @@ notebooks/old/
 .~lock.*
 
 config.yaml
+monscrape.yaml
