@@ -1,0 +1,18 @@
+auth:
+    token: BjVjlV9MiVBgfe1XpS2xPRHlzllEqnNygHWI0gwc1qdjRCLe6BRKH0fMMkpOtdskQSlIWyim55pgd1fmKxfiizg8B2XJaRcq3bvaZIKx97B.8zGoycOC1m-ob78PnFLz
+    api_key: AIzaSyCRxzufL7cMMImafP85NbOeleDdgiYx_fk
+    client_email:  monkeyscraper@uwsd-covid-19-data.iam.gserviceaccount.com
+
+google:
+    api_key: AIzaSyCRxzufL7cMMImafP85NbOeleDdgiYx_fk
+    client_email:  monkeyscraper@uwsd-covid-19-data.iam.gserviceaccount.com
+    cred_file: ./uwsd-covid-19-data-48c99e07e2c8.json
+    gs_key: 153Lw7M6RXPqKWiMTOb-e38EvK-zg2J50K8CJD1DjAjw
+    gs_name: UWSD Covid-19 Application Files
+    
+cache: /monscrape
+    
+collectors:
+    - 256697438
+    - 256844931
+    

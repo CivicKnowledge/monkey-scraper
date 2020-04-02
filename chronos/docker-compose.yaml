@@ -1,0 +1,12 @@
+version: "3.7"
+services:
+
+  monkey-cron:
+    image: dccron
+    build: .
+
+    volumes:
+        - monscrape:/monscrape
+
+volumes:
+  monscrape:
