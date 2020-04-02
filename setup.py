@@ -57,7 +57,7 @@ setup(
     ],
     keywords = 'cli',
     packages = find_packages(exclude=['docs', 'tests*']),
-    install_requires = ['pandas'],
+    install_requires = ['pandas', 'gspread','df2gspread'],
     extras_require = {
         'test': ['coverage', 'pytest', 'pytest-cov'],
     },

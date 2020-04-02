@@ -26,7 +26,7 @@ def main():
 
     The download function will always download and re-cache the first page. If the
     total number of record has changed, it will also re-download the last page,
-    and download and cache any subsequent pages. 
+    and download and cache any subsequent pages.
 
     """
 
@@ -35,57 +35,78 @@ def main():
     #parser.add_argument('integers', metavar='N', type=int, nargs='+',
     #                    help='an integer for the accumulator')
 
-    parser.add_argument('-c', '--clean', action='store_true', help='Clean the cache')
-    parser.add_argument('-d', '--download', action='store_true', help='Process cached documents')
-    parser.add_argument('-p', '--process', action='store_true', help='Process cached documents')
+    parser.add_argument('-C', '--clean', action='store_true', help='Clean the cache')
+    parser.add_argument('-d', '--download', action='store_true', help='Download new data')
+    parser.add_argument('-c', '--csv', action='store_true', help='Process cached documents and create CSV file')
+    parser.add_argument('-g', '--google', action='store_true', help='Process cached documents and upload to a google sheet.')
 
-    parser.add_argument('collector_id', help = 'Collector id to run')
-
+    parser.add_argument('collector_id', nargs='?', help = 'Collector id to run')
 
     parser.add_argument('output_file', nargs='?', help = 'File to write output to. If not specified, write to stdout')
 
     args = parser.parse_args()
 
-    if not any([args.download, args.process]):
+    if not any([args.download, args.csv, args.google]):
         args.download = True
-        args.process  = True
+        args.csv  = True
 
     try:
         cf = Path('monscrape.yaml')
         config = safe_load(cf.read_text())
-        token = config.get('auth', {}).get('token',{})
+
     except FileNotFoundError:
-        token = None
+        pass
 
+    if args.collector_id:
+        run_for_collector(config, args, args.collector_id)
+    else:
+        if not config:
+            print("ERROR: did not find config file")
+            sys.exit(1)
 
+        for collector_id in config['collectors']:
+            print("== ", collector_id)
+            run_for_collector(config, args, str(collector_id))
 
-    if not token:
-        token = os.environ.get('MONSCRAPE_TOKEN')
+def run_for_collector(config, args, collector_id):
 
-    if not token:
-        print("ERROR: No token is set in the configuration, nor in the MONSCRAPE_TOKEN environmental variable")
-        sys,exit(10)
-
-    s = Scraper(token, args.collector_id, args.output_file)
+    s = Scraper(config, collector_id, args.output_file)
 
     if args.clean:
         s.clean_cache()
 
     if args.download:
-        for d in s.get_pages(args.collector_id):
+        for d in s.get_pages(s.collector_id):
             pass
 
-    if args.process:
-        s.process_cached_pages()
+    if args.csv:
+        s.save_to_csv()
+
+    if args.google:
+        s.write_to_google()
 
 class Scraper(object):
 
-    def __init__(self,token, collector_id, output_file, cache_dir=None):
-        self.token = token
+    def __init__(self,config, collector_id, output_file, cache_dir=None):
+        self.config = config
         self.cache_dir = None
         self._conn = None
         self.collector_id = collector_id
         self.output_file = output_file
+
+    @property
+    def token(self):
+
+        token = self.config.get('auth', {}).get('token', {})
+
+        if not token:
+            token = os.environ.get('MONSCRAPE_TOKEN')
+
+        if not token:
+            print("ERROR: No token is set in the configuration, nor in the MONSCRAPE_TOKEN environmental variable")
+            sys, exit(1)
+
+        return token
 
     @property
     def cache(self):
@@ -135,7 +156,7 @@ class Scraper(object):
             t = cp.read_text()
         else:
             if report:
-                print("Downloading ", url)
+                print("Downloading ", url, cp)
             conn = self.connection
             headers = self.headers
             payload = ''
@@ -157,8 +178,6 @@ class Scraper(object):
         # Do we need to re-fetch the last page?
         refetch_last = d['total'] !=  d2['total']
 
-
-
         while True:
             yield d
             next = d['links'].get('next')
@@ -167,6 +186,7 @@ class Scraper(object):
 
             if next == d['links']['last'] and refetch_last:
                 use_cache = False
+                refetch_last = False
             else:
                 use_cache = True
 
@@ -181,9 +201,13 @@ class Scraper(object):
                 'Collector': self.collector_id,
                 'Edit URL': e.get('edit_url'),
                 'Analyze URL': e.get('analyze_url'),
-                'API Link': e.get('href')
+                'API Link': e.get('href'),
+                'Node ID': None,
+                'File Name': None,
+                'Download URL': None
             }
 
+            n_rows = 0
             for page in e.get('pages'):
                 for question in page.get('questions'):
                     for answer in question.get('answers'):
@@ -195,17 +219,26 @@ class Scraper(object):
                                 'Download URL': answer.get('download_url'),
                             })
                             yield r
+                            n_rows += 1
+            if n_rows == 0:
+                yield h
 
-    def process_cached_pages(self):
-
+    def _process_cached_pages(self):
         recs = []
-        for page in self.cache.joinpath(self.collector_id).rglob("*"):
+
+        for page in self.cache.joinpath(str(self.collector_id)).rglob("*"):
             if page.is_file():
                 d = json.loads(page.read_text())
-                for rec in  self.process_page(d):
+                for rec in self.process_page(d):
                     recs.append(rec)
 
         df = pd.DataFrame(recs)
+
+        return df
+
+    def save_to_csv(self):
+
+        df = self._process_cached_pages()
 
         if self.output_file:
             if self.output_file == '-':
@@ -220,6 +253,29 @@ class Scraper(object):
             df.to_csv(f)
 
 
+    def write_to_google(self):
+
+        df = self._process_cached_pages()
+
+        import gspread
+        import gspread_dataframe as gd
+        from oauth2client.service_account import ServiceAccountCredentials
+
+        scope = ['https://spreadsheets.google.com/feeds',
+                 'https://www.googleapis.com/auth/drive']
+
+        credentials = ServiceAccountCredentials \
+            .from_json_keyfile_name(self.config['google']['cred_file'], scope)
+
+        gc = gspread.authorize(credentials)
+
+        wks = gc.open_by_key(self.config['google']['gs_key']).worksheet(self.collector_id)
+
+        #df = gd.get_as_dataframe(wks)
+
+        df = self._process_cached_pages()
+
+        gd.set_with_dataframe(wks,df)
 
 
 
