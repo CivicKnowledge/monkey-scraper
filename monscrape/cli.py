@@ -36,6 +36,7 @@ def main():
     #                    help='an integer for the accumulator')
 
     parser.add_argument('-C', '--clean', action='store_true', help='Clean the cache')
+    parser.add_argument('-k', '--cache', help='Cache directory')
     parser.add_argument('-d', '--download', action='store_true', help='Download new data')
     parser.add_argument('-c', '--csv', action='store_true', help='Process cached documents and create CSV file')
     parser.add_argument('-g', '--google', action='store_true', help='Process cached documents and upload to a google sheet.')
@@ -70,7 +71,7 @@ def main():
 
 def run_for_collector(config, args, collector_id):
 
-    s = Scraper(config, collector_id, args.output_file)
+    s = Scraper(config, collector_id, args.output_file, args.cache)
 
     if args.clean:
         s.clean_cache()
@@ -89,7 +90,7 @@ class Scraper(object):
 
     def __init__(self,config, collector_id, output_file, cache_dir=None):
         self.config = config
-        self.cache_dir = None
+        self.cache_dir = cache_dir
         self._conn = None
         self.collector_id = collector_id
         self.output_file = output_file
@@ -111,7 +112,16 @@ class Scraper(object):
     @property
     def cache(self):
 
-        cache_dir = self.cache_dir or './cache'
+        if self.cache_dir:
+            cache_dir = self.cache_dir
+        elif 'cache' in self.config:
+            cache_dir = self.config['cache']
+        else:
+            cache_dir = './cache'
+
+        if not cache_dir:
+            print("ERROR: Cache dir not specified properly")
+            sys, exit(1)
 
         cache = Path(cache_dir)
 
