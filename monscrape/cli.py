@@ -55,7 +55,7 @@ def main():
         config = safe_load(cf.read_text())
 
     except FileNotFoundError:
-        pass
+        config= None
 
     if args.collector_id:
         run_for_collector(config, args, args.collector_id)
