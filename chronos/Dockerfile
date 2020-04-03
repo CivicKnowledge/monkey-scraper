@@ -13,7 +13,7 @@ RUN apt-get update && \
 	rm -rf /var/lib/apt/lists/*
 
 
-RUN pip install -U git+https://github.com/CivicKnowledge/monkey-scraper.git #3
+RUN pip install -U git+https://github.com/CivicKnowledge/monkey-scraper.git #5
     
 ADD monkeyscrape.cron /etc/cron.d/monkeyscrape.cron
 RUN chmod 0644 /etc/cron.d/monkeyscrape.cron
@@ -27,6 +27,10 @@ ADD uwsd-covid-19-data-48c99e07e2c8.json /root
 #ENTRYPOINT ["/tini", "--"]
 
 ADD chronos.sh /root/chronos.sh
+
+ENV TZ=America/Los_Angeles
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 
 CMD ["cron", "-f"]
 

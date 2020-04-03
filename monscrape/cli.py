@@ -279,7 +279,6 @@ class Scraper(object):
 
     def write_to_google(self):
 
-        df = self._process_cached_pages()
 
         import gspread
         import gspread_dataframe as gd
@@ -295,13 +294,17 @@ class Scraper(object):
 
         wks = gc.open_by_key(self.config['google']['gs_key']).worksheet(self.collector_id)
 
-        df = gd.get_as_dataframe(wks)
-        print(f"Current sheet has  {len(df)} rows ")
+        odf = gd.get_as_dataframe(wks)
 
         df = self._process_cached_pages()
 
-        print(f"Writing {len(df)} rows to Google Sheet")
-        gd.set_with_dataframe(wks,df)
+        print(f"Current sheet has  {len(odf)} rows ")
+
+        if len(odf) == len(df):
+            print("Size of of file didn't change; not updating")
+        else:
+            print(f"Writing {len(df)} rows to Google Sheet")
+            gd.set_with_dataframe(wks,df)
 
 
 
