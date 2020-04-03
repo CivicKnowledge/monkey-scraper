@@ -13,6 +13,7 @@ import pandas as pd
 import os
 import sys
 from shutil import rmtree
+from . import __version__
 
 def main():
     """Scrape Survey Monkey responses for a United Way program
@@ -41,11 +42,16 @@ def main():
     parser.add_argument('-c', '--csv', action='store_true', help='Process cached documents and create CSV file')
     parser.add_argument('-g', '--google', action='store_true', help='Process cached documents and upload to a google sheet.')
 
+    parser.add_argument('-v', '--version', action='store_true', help='print the version')
+
     parser.add_argument('collector_id', nargs='?', help = 'Collector id to run')
 
     parser.add_argument('output_file', nargs='?', help = 'File to write output to. If not specified, write to stdout')
 
     args = parser.parse_args()
+
+    if args.version:
+        print(f"Version: {__version__} ")
 
     if not any([args.download, args.csv, args.google]):
         args.download = True
