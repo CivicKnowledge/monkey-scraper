@@ -50,8 +50,6 @@ def main():
 
     args = parser.parse_args()
 
-    if args.version:
-        print(f"Version: {__version__} ")
 
     if not any([args.download, args.csv, args.google]):
         args.download = True
@@ -62,7 +60,17 @@ def main():
         config = safe_load(cf.read_text())
 
     except FileNotFoundError:
+        cf = None
         config= None
+
+    if args.version:
+        print(f"Version: {__version__} ")
+        if config:
+            print(f"Config file: {str(cf)}")
+        else:
+            print("Config file not found")
+        sys.exit(0)
+
 
     if args.collector_id:
         run_for_collector(config, args, args.collector_id)
